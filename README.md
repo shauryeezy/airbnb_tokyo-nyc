@@ -29,7 +29,7 @@ We modeled three occupancy scenarios to stress-test potential returns.
 
 ### 2. High-Yield Neighborhoods (Hotspots)
 *Where should capital be allocated?*
-Top performing neighborhoods based on "Base Case" (60% occupancy) projections.
+A balanced comparison of the **Top 5 most profitable neighborhoods in NYC** vs the **Top 5 in Tokyo** (Base Case).
 ![Top Neighbourhoods](assets/top_neighbourhoods.png)
 
 ### 3. Price Distribution: NYC vs. Tokyo
