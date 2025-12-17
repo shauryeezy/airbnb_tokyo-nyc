@@ -13,6 +13,16 @@ def generate_visuals():
         print("❌ valuation_model_input.csv not found. Run pipeline.py first.")
         return
 
+    # Data Cleaning for Visualization
+    # Convert Tokyo JPY to USD (Approx 1 JPY = 0.0067 USD or ~150 JPY/USD)
+    conversion_rate = 0.0067
+    tky_mask = df['city'] == 'Tokyo'
+    
+    cols_to_convert = ['nightly_rate', 'annual_revenue_conservative', 'annual_revenue_realistic', 'annual_revenue_optimistic']
+    for col in cols_to_convert:
+        df.loc[tky_mask, col] = df.loc[tky_mask, col] * conversion_rate
+
+
     # Set Style
     sns.set_theme(style="whitegrid")
     
