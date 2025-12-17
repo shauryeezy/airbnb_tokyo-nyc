@@ -38,12 +38,33 @@ def generate_visuals():
     print("✅ Created assets/revenue_scenarios.png")
     plt.close()
 
-    # 2. Top 10 Neighbourhoods by Yield (Base Case)
+    # 2. Top 10 Neighbourhoods by Yield (Base Case) - Top 5 from EACH City
     plt.figure(figsize=(12, 8))
-    top_neighborhoods = df.groupby(['city', 'neighbourhood'])['annual_revenue_realistic'].mean().sort_values(ascending=False).head(10)
-    sns.barplot(x=top_neighborhoods.values, y=[f"{n[1]} ({n[0]})" for n in top_neighborhoods.index], palette="magma")
-    plt.title("Top 10 Most Profitable Neighbourhoods (Base Case)", fontsize=16)
+    
+    # Calculate means per neighbourhood
+    nbhd_stats = df.groupby(['city', 'neighbourhood'])['annual_revenue_realistic'].mean().reset_index()
+    
+    # Get Top 5 for NYC and Top 5 for Tokyo
+    nyc_top = nbhd_stats[nbhd_stats['city'] == 'NYC'].sort_values('annual_revenue_realistic', ascending=False).head(5)
+    tokyo_top = nbhd_stats[nbhd_stats['city'] == 'Tokyo'].sort_values('annual_revenue_realistic', ascending=False).head(5)
+    
+    # Combine
+    top_neighborhoods = pd.concat([nyc_top, tokyo_top]).sort_values('annual_revenue_realistic', ascending=False)
+    
+    # Plot with hue to distinguish cities
+    sns.barplot(
+        data=top_neighborhoods,
+        x='annual_revenue_realistic',
+        y='neighbourhood',
+        hue='city',
+        dodge=False,
+        palette="magma"
+    )
+    
+    plt.title("Top 5 Most Profitable Neighbourhoods: NYC vs Tokyo (Base Case)", fontsize=16)
     plt.xlabel("Average Annual Revenue ($)", fontsize=12)
+    plt.ylabel("Neighbourhood", fontsize=12)
+    plt.legend(title="City")
     plt.savefig("assets/top_neighbourhoods.png")
     print("✅ Created assets/top_neighbourhoods.png")
     plt.close()
