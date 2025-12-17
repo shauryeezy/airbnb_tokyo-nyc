@@ -91,4 +91,3 @@ python visualize_results.py
 *   `visualize_results.py`: Generates the static assets for this README.
 
 ---
-*Built for the Advanced Data Engineering Portfolio*
