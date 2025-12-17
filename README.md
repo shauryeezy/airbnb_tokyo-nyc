@@ -9,7 +9,7 @@ An **Enterprise-Grade ELT (Extract, Load, Transform) Pipeline** engineered to id
 
 ---
 
-## 🎯 Executive Summary & Impact
+## 🎯 Summary & Impact
 
 This project moves beyond simple data visualization to build a robust **Decision Support System** for real estate investors. By processing millions of property records, we model revenue potential under various market conditions.
 
