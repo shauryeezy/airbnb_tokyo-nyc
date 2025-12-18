@@ -162,5 +162,53 @@ def generate_visuals():
         traceback.print_exc()
 
 
+    # 13. RevPAR Analysis (High Yield Scatter)
+    try:
+        plt.figure(figsize=(10, 6))
+        # Filter noise: RevPAR < 300 to show the dense cluster
+        sns.scatterplot(data=df[df['revpar'] < 300], x='nightly_rate', y='revpar', hue='room_type', alpha=0.6, palette="deep")
+        plt.title("13. Cash Cows: Price vs RevPAR (Revenue Per Available Night)")
+        plt.xlabel("Nightly Price ($)")
+        plt.ylabel("RevPAR ($)")
+        plt.plot([0, 300], [0, 300], ls="--", c=".3") # Diagonal line
+        plt.savefig("assets/13_revpar_scatter.png")
+        plt.close()
+        print("   Chart 13 OK.")
+    except Exception:
+        print("   Chart 13 Failed.")
+        traceback.print_exc()
+
+    # 15. Seasonality Analysis
+    try:
+        season_df = pd.read_csv("seasonal_trends.csv")
+        plt.figure(figsize=(12, 6))
+        sns.lineplot(data=season_df, x='month_year', y='avg_price', marker="o", color="crimson")
+        plt.xticks(rotation=45)
+        plt.title("15. Seasonality: 12-Month Price Forecast")
+        plt.ylabel("Avg Listing Price ($)")
+        plt.grid(True)
+        plt.savefig("assets/15_seasonality_trend.png")
+        plt.close()
+        print("   Chart 15 OK.")
+    except Exception:
+        print("   Chart 15 Failed.")
+        traceback.print_exc()
+
+    # 16. Geospatial Map (Static Scatter)
+    try:
+        plt.figure(figsize=(10, 10))
+        # Scatterplot of Lat/Lon, colored by Price (log scale for visibility)
+        # Filter extremely expensive ones for better color contrast
+        map_df = df[df['nightly_rate'] < 500] 
+        sns.scatterplot(data=map_df, x='longitude', y='latitude', hue='nightly_rate', palette="viridis", size='revpar', sizes=(10, 200), alpha=0.6)
+        plt.title("16. Investment Map: High RevPAR Zones")
+        plt.axis('equal') # Keep map aspect ratio
+        plt.savefig("assets/16_geospatial_map.png")
+        plt.close()
+        print("   Chart 16 OK.")
+    except Exception:
+        print("   Chart 16 Failed.")
+        traceback.print_exc()
+        
 if __name__ == "__main__":
     generate_visuals()

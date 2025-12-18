@@ -30,10 +30,13 @@ def transform():
         id,
         name,
         neighbourhood_cleansed as neighbourhood,
+        latitude,
+        longitude,
         property_type,
         room_type,
         accommodates,
         CAST(NULLIF(regexp_replace(price, '[^0-9.]', '', 'g'), '') AS FLOAT) as price_clean,
+        COALESCE(minimum_nights, 1) as minimum_nights,
         COALESCE(number_of_reviews, 0) as reviews,
         COALESCE(review_scores_rating, 0) as rating,
         COALESCE(reviews_per_month, 0) as reviews_per_month
@@ -107,6 +110,7 @@ def transform():
     
     print("Step 2: Conducting Yield Analysis (Sensitivity Modeling)...")
     # Updated to exclude outliers from financial projections
+    # Added RevPAR and Occupancy Rate calculations
     yield_sql_updated = """
     DROP TABLE IF EXISTS yield_analysis;
     
@@ -116,6 +120,17 @@ def transform():
         neighbourhood,
         id,
         price_clean,
+        -- Occupancy Rate Estimation (Heuristic: 50% review rate, min stay)
+        -- Formula: (Reviews/Month / 0.5) * Min_Nights / 30
+        -- We cap it at 0.70 (70%) to be conservative and realistic
+        LEAST(
+            (reviews_per_month / 0.5) * minimum_nights / 30.0, 
+            0.70
+        ) as occupancy_rate,
+        
+        -- RevPAR = Price * Occupancy
+        (price_clean * LEAST((reviews_per_month / 0.5) * minimum_nights / 30.0, 0.70)) as revpar,
+
         (price_clean * 365 * 0.40) as revenue_bear,
         (price_clean * 365 * 0.60) as revenue_base,
         (price_clean * 365 * 0.80) as revenue_bull
@@ -123,6 +138,24 @@ def transform():
     WHERE price_clean > 0 AND is_outlier = FALSE;
     """
     run_query(yield_sql_updated, engine)
+    
+    # 2.1 Seasonality Analysis
+    print("Step 2.1: Analyzing Seasonality (Calendar Data)...")
+    seasonality_sql = """
+    DROP TABLE IF EXISTS seasonality_stats;
+    CREATE TABLE seasonality_stats AS
+    SELECT
+        TO_CHAR(date::DATE, 'YYYY-MM') as month_year,
+        AVG(CAST(NULLIF(regexp_replace(price::TEXT, '[^0-9.]', '', 'g'), '') AS FLOAT)) as avg_price
+    FROM raw_calendar_nyc
+    WHERE available = 't'
+    GROUP BY 1
+    ORDER BY 1;
+    """
+    try:
+        run_query(seasonality_sql, engine)
+    except Exception as e:
+        print(f"⚠️ Seasonality analysis skipped (Missing calendar data?): {e}")
     
     print("Step 3: Aggregating Neighborhood Statistics...")
     run_query(stats_sql, engine)

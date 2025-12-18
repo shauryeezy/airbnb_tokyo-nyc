@@ -23,11 +23,15 @@ def export_comprehensive_data():
         cl.id,
         cl.city,
         cl.neighbourhood,
+        cl.latitude,
+        cl.longitude,
         cl.room_type,
         cl.property_type,
         cl.accommodates,
         cl.rating,
         cl.reviews,
+        ya.occupancy_rate,
+        ya.revpar,
         ya.price_clean as nightly_rate,
         ya.revenue_bear as annual_revenue_conservative,
         ya.revenue_base as annual_revenue,
@@ -44,6 +48,13 @@ def export_comprehensive_data():
         df.to_csv(output_file, index=False)
         
         print(f"✅ Successfully exported {len(df)} records to '{output_file}'.")
+        
+        # 2. Export Seasonality Data
+        print("⏳ Extracting Seasonality Data...")
+        season_df = pd.read_sql("SELECT * FROM seasonality_stats", engine)
+        season_df.to_csv("seasonal_trends.csv", index=False)
+        print(f"✅ Successfully exported {len(season_df)} months of data to 'seasonal_trends.csv'.")
+        
         print("📊 Ready for visualization engine.")
         
     except Exception as e:
