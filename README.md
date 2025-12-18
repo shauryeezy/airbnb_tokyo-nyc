@@ -14,7 +14,7 @@
 | :--- | :--- |
 | **`NYC_Airbnb_Data_Analysis.ipynb`** | 👈 **Start Here**. The primary analysis, code, and key findings. |
 | `sql/` | CLEAN SQL queries used for data extraction and yield calculation. |
-| `visuals/` | High-resolution charts and the **Interactive Heatmap**. |
+| `visuals/` | High-resolution charts. |
 | `data/` | Raw and processed datasets. |
 
 ---
@@ -37,12 +37,7 @@
 **Insight:** Even in Bear scenarios (P25), top quartiles remain profitable.
 ![Risk Scenarios](visuals/4_revenue_scenarios.png)
 
----
 
-## 🗺️ Geospatial Intelligence
-**Tool:** Interactive Heatmap (Folium/Leaflet.js).
-*   **Output:** [Open Interactive Map](visuals/nyc_investment_map.html)
-![Map](visuals/nyc_investment_map.html)
 
 ---
 

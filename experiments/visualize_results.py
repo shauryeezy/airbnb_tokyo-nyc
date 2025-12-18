@@ -2,8 +2,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import traceback
-import folium
-from folium.plugins import HeatMap, MarkerCluster
+
 import numpy as np
 
 def generate_visuals():
@@ -208,35 +207,7 @@ def generate_visuals():
         print("   Chart 4 Failed.")
         traceback.print_exc()
 
-    # 🏅 5. Aggregated Investment Map (Hex/Cluster)
-    try:
-        print("   Generating Map...")
-        nyc_map = folium.Map(location=[40.73, -73.93], zoom_start=11, tiles='CartoDB Positron')
-        
-        high_yield = df[df['annual_revenue'] > df['annual_revenue'].quantile(0.80)]
-        
-        marker_cluster = MarkerCluster(name="High Yield Clusters (Top 20%)").add_to(nyc_map)
-        
-        for idx, row in high_yield.iterrows():
-            folium.CircleMarker(
-                location=[row['latitude'], row['longitude']],
-                radius=4,
-                popup=f"<b>{row['neighbourhood']}</b><br>${row['nightly_rate']}/night<br>Rev: ${row['annual_revenue']:,.0f}",
-                color='#e67e22',
-                fill=True,
-                fill_color='#e67e22',
-                fill_opacity=0.7
-            ).add_to(marker_cluster)
-            
-        heat_data = [[row['latitude'], row['longitude']] for index, row in df.iterrows()]
-        HeatMap(heat_data, radius=12, blur=18, gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}).add_to(nyc_map)
-        
-        folium.LayerControl().add_to(nyc_map)
-        nyc_map.save("assets/nyc_investment_map.html")
-        print("   Chart 5 (Map) OK.")
-    except Exception:
-        print("   Chart 5 Failed.")
-        traceback.print_exc()
+
 
     # 🏅 6. Pricing Strategy Table (Clean Design)
     try:
