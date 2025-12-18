@@ -2,213 +2,297 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import traceback
+import folium
+from folium.plugins import HeatMap, MarkerCluster
+import numpy as np
 
 def generate_visuals():
     print("🎨 Step 1: Loading Data...")
     df = pd.read_csv("comprehensive_data.csv")
     print("   Data Loaded. Shape:", df.shape)
 
-    print("🎨 Step 3: Setting Theme...")
-    sns.set_theme(style="whitegrid")
+    # Global Theme
+    sns.set_theme(style="white", context="talk") # Clean white background
     
-    print("🎨 Step 4: Plotting Chart 1 to 10...")
-    
-    # 1. Revenue Scenarios
+    # 🥇 1. Neighborhood Strategy (Scatter: Volume vs Efficiency)
     try:
-        if 'annual_revenue_conservative' not in df.columns:
-            df['annual_revenue_conservative'] = df['annual_revenue'] * 0.66
-            df['annual_revenue_optimistic'] = df['annual_revenue'] * 1.33
-            
-        plt.figure(figsize=(10, 6))
-        scenario_data = df[['annual_revenue_conservative', 'annual_revenue', 'annual_revenue_optimistic']].mean()
-        scenario_data.index = ['Bear (40%)', 'Base (60%)', 'Bull (80%)']
-        sns.barplot(x=scenario_data.index, y=scenario_data.values, palette="viridis")
-        plt.title("1. Annual Revenue Scenarios (Global Avg)")
-        plt.savefig("assets/1_revenue_scenarios.png")
+        # Aggregation
+        nbhd_stats = df.groupby('neighbourhood').agg({
+            'annual_revenue': 'sum',
+            'id': 'count'
+        }).reset_index()
+        nbhd_stats['revenue_per_listing'] = nbhd_stats['annual_revenue'] / nbhd_stats['id']
+        
+        # Filter sparse neighborhoods
+        nbhd_stats = nbhd_stats[nbhd_stats['id'] > 50] # Reasonable sample size
+        
+        plt.figure(figsize=(10, 8))
+        
+        # Plot
+        p = sns.scatterplot(
+            data=nbhd_stats, 
+            x='annual_revenue', 
+            y='revenue_per_listing', 
+            size='id', 
+            sizes=(50, 500), 
+            alpha=0.7, 
+            hue='revenue_per_listing', 
+            palette='viridis',
+            legend=False
+        )
+        
+        # Annotate Top Performers
+        top_efficiency = nbhd_stats.sort_values('revenue_per_listing', ascending=False).head(5)
+        top_volume = nbhd_stats.sort_values('annual_revenue', ascending=False).head(5)
+        to_annotate = pd.concat([top_efficiency, top_volume]).drop_duplicates()
+        
+        for line in range(0, to_annotate.shape[0]):
+             p.text(
+                 to_annotate.annual_revenue.iloc[line], 
+                 to_annotate.revenue_per_listing.iloc[line]+1000, 
+                 to_annotate.neighbourhood.iloc[line], 
+                 horizontalalignment='center', 
+                 size='small', 
+                 color='black', 
+                 weight='semibold'
+             )
+
+        plt.title("1. Market Matrix: Identifying 'Cash Cows'", fontweight='bold')
+        plt.xlabel("Total Market Revenue (Volume)", fontweight='bold')
+        plt.ylabel("Avg Revenue Per Listing (Efficiency)", fontweight='bold')
+        
+        # Add Quadrant Text
+        plt.axhline(nbhd_stats['revenue_per_listing'].median(), color='gray', linestyle='--', alpha=0.3)
+        plt.axvline(nbhd_stats['annual_revenue'].median(), color='gray', linestyle='--', alpha=0.3)
+        
+        plt.text(nbhd_stats['annual_revenue'].max(), nbhd_stats['revenue_per_listing'].max(), "High Eff / High Vol\n(Cash Cows)", ha='right', va='top', color='green', fontweight='bold')
+        plt.text(0, 0, "Low Eff / Low Vol\n(Avoid)", ha='left', va='bottom', color='red', padding=10)
+        
+        # Format Axis
+        current_values = plt.gca().get_xticks()
+        plt.gca().set_xticklabels(['${:,.0f}M'.format(x/1000000) for x in current_values])
+        
+        plt.grid(True, linestyle=':', alpha=0.5)
+        plt.tight_layout()
+        plt.savefig("assets/1_top_revenue_hoods.png")
         plt.close()
         print("   Chart 1 OK.")
     except Exception:
         print("   Chart 1 Failed.")
         traceback.print_exc()
 
-    # 2. Top 10 Neighbourhoods (NYC)
+    # 🥈 2. Room Efficiency (Clean Bar Chart)
     try:
-        plt.figure(figsize=(12, 8))
-        nbhd_stats = df.groupby('neighbourhood')['annual_revenue'].mean().reset_index()
-        top_neighborhoods = nbhd_stats.sort_values('annual_revenue', ascending=False).head(10)
-        sns.barplot(data=top_neighborhoods, x='annual_revenue', y='neighbourhood', palette="magma")
-        plt.title("2. Top 10 Most Profitable NYC Neighbourhoods")
-        plt.xlabel("Avg Annual Revenue ($)")
-        plt.savefig("assets/2_top_neighbourhoods.png")
+        plt.figure(figsize=(10, 6))
+        
+        # Filter
+        clean_df = df[df['room_type'] != 'Hotel room']
+        
+        # Aggregation with N count
+        efficiency = clean_df.groupby('room_type').agg({
+            'revpar': 'mean',
+            'id': 'count'
+        }).reset_index()
+        
+        # Plot
+        ax = sns.barplot(data=efficiency, x='room_type', y='revpar', palette="Blues_d")
+        
+        # Annotate
+        for i, row in efficiency.iterrows():
+            ax.text(i, row['revpar'] + 2, f"${row['revpar']:.0f}\n(n={row['id']})", 
+                    ha='center', va='bottom', fontweight='bold', fontsize=12)
+            
+        plt.title("2. Asset Efficiency: RevPAR Comparison", fontweight='bold')
+        
+        # Remove Y-Axis (Data-Ink Ratio)
+        plt.ylabel("")
+        plt.yticks([]) 
+        plt.xlabel("")
+        sns.despine(left=True) # Remove left spine
+        
+        plt.figtext(0.5, 0.05, "Insight: Entire Homes generate highest yield per unit.", ha="center", style='italic')
+        plt.tight_layout(rect=[0, 0.05, 1, 1])
+        plt.savefig("assets/2_room_efficiency.png")
         plt.close()
-        print("   Chart 2 OK.")
         print("   Chart 2 OK.")
     except Exception:
         print("   Chart 2 Failed.")
         traceback.print_exc()
 
-    # 3. Price Distribution
+    # 🥉 3. Price vs Occupancy (Low Alpha)
     try:
-        plt.figure(figsize=(10, 6))
-        # Data is already statistically filtered via IQR in transformation layer
-        sns.violinplot(data=df, y="nightly_rate", palette="muted")
-        plt.title("3. Nightly Rate Distribution (Statistically Cleaned)")
-        plt.ylabel("Nightly Rate ($)")
-        plt.savefig("assets/3_price_distribution.png")
+        plt.figure(figsize=(10, 8))
+        
+        # Filter outliers for clean Viz
+        viz_df = df[(df['nightly_rate'] < 500) & (df['occupancy_rate'] > 0)].copy()
+        p90_revpar = viz_df['revpar'].quantile(0.90)
+        viz_df['is_top_performer'] = viz_df['revpar'] > p90_revpar
+        
+        # Plot (Fade non-performers to create heat map effect)
+        sns.scatterplot(
+            data=viz_df[~viz_df['is_top_performer']], 
+            x='nightly_rate', 
+            y='occupancy_rate', 
+            color='#95a5a6', 
+            alpha=0.1, # Critical fix
+            s=40, 
+            label='Standard Listings'
+        )
+        
+        sns.scatterplot(
+            data=viz_df[viz_df['is_top_performer']], 
+            x='nightly_rate', 
+            y='occupancy_rate', 
+            color='#2ecc71', 
+            alpha=0.8, 
+            s=60, 
+            label='Top 10% Yield'
+        )
+        
+        # Annotate Optimal Zone
+        opt_price = viz_df[viz_df['is_top_performer']]['nightly_rate'].median()
+        plt.axvline(opt_price, color='#27ae60', linestyle='--', alpha=0.5)
+        
+        props = dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='#2ecc71')
+        plt.text(opt_price + 20, 0.9, f"Optimal Band:\n~${opt_price-30:.0f} - ${opt_price+30:.0f}", 
+                 bbox=props, fontsize=11, color='#27ae60', fontweight='bold')
+
+        plt.title("3. Pricing Strategy: Efficiency Frontier", fontweight='bold')
+        plt.xlabel("Nightly Price ($)")
+        plt.ylabel("Est. Occupancy Rate")
+        sns.despine()
+        
+        plt.legend(loc='upper right', frameon=True)
+        plt.tight_layout()
+        plt.savefig("assets/3_price_vs_occupancy.png")
         plt.close()
         print("   Chart 3 OK.")
     except Exception:
         print("   Chart 3 Failed.")
         traceback.print_exc()
 
-    # 4. Room Types (Already done)
-
-    # 5. Avg Price by Room Type
+    # 🏅 4. Illustrative Revenue Scenarios
     try:
         plt.figure(figsize=(10, 6))
-        sns.barplot(data=df, x='room_type', y='nightly_rate', palette="coolwarm")
-        plt.title("5. Cost of Living: Avg Nightly Rate by Room Type")
-        plt.ylabel("Avg Price ($)")
-        plt.savefig("assets/5_price_by_room.png")
+        
+        p25 = df['annual_revenue'].quantile(0.25)
+        p50 = df['annual_revenue'].median()
+        p75 = df['annual_revenue'].quantile(0.75)
+        
+        scenarios = pd.DataFrame({
+            'Scenario': ['Conservative (P25)', 'Base (Median)', 'Aggressive (P75)'],
+            'Revenue': [p25, p50, p75]
+        })
+        
+        colors = ["#7f8c8d", "#2980b9", "#27ae60"]
+        
+        ax = sns.barplot(data=scenarios, x='Scenario', y='Revenue', palette=colors)
+        
+        for i, v in enumerate(scenarios['Revenue']):
+            ax.text(i, v + 500, f"${v:,.0f}", ha='center', va='bottom', fontweight='bold', fontsize=14)
+
+        plt.title("4. Investment Benchmarks: Illustrative Revenue Scenarios", fontweight='bold')
+        plt.ylabel("")
+        plt.yticks([])
+        plt.xlabel("")
+        sns.despine(left=True)
+        
+        plt.figtext(0.5, 0.02, "Note: Based on actual historical performance percentiles (P25/P50/P75) of the NYC dataset.", 
+                    ha="center", fontsize=10, style='italic', color='gray')
+        
+        plt.tight_layout(rect=[0, 0.05, 1, 1])
+        plt.savefig("assets/4_revenue_scenarios.png")
         plt.close()
-        print("   Chart 5 OK.")
+        print("   Chart 4 OK.")
+    except Exception:
+        print("   Chart 4 Failed.")
+        traceback.print_exc()
+
+    # 🏅 5. Aggregated Investment Map (Hex/Cluster)
+    try:
+        print("   Generating Map...")
+        nyc_map = folium.Map(location=[40.73, -73.93], zoom_start=11, tiles='CartoDB Positron')
+        
+        high_yield = df[df['annual_revenue'] > df['annual_revenue'].quantile(0.80)]
+        
+        marker_cluster = MarkerCluster(name="High Yield Clusters (Top 20%)").add_to(nyc_map)
+        
+        for idx, row in high_yield.iterrows():
+            folium.CircleMarker(
+                location=[row['latitude'], row['longitude']],
+                radius=4,
+                popup=f"<b>{row['neighbourhood']}</b><br>${row['nightly_rate']}/night<br>Rev: ${row['annual_revenue']:,.0f}",
+                color='#e67e22',
+                fill=True,
+                fill_color='#e67e22',
+                fill_opacity=0.7
+            ).add_to(marker_cluster)
+            
+        heat_data = [[row['latitude'], row['longitude']] for index, row in df.iterrows()]
+        HeatMap(heat_data, radius=12, blur=18, gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}).add_to(nyc_map)
+        
+        folium.LayerControl().add_to(nyc_map)
+        nyc_map.save("assets/nyc_investment_map.html")
+        print("   Chart 5 (Map) OK.")
     except Exception:
         print("   Chart 5 Failed.")
         traceback.print_exc()
 
-    # 6. Review Volume vs Price
+    # 🏅 6. Pricing Strategy Table (Clean Design)
     try:
-        plt.figure(figsize=(10, 6))
-        sample = df[df['reviews'] < 500].sample(min(5000, len(df)))
-        sns.scatterplot(data=sample, x='nightly_rate', y='reviews', alpha=0.5, size='rating')
-        plt.title("6. Value Seeking: Do Cheaper Listings Get More Reviews?")
-        plt.savefig("assets/6_price_vs_reviews.png")
+        stats = df['nightly_rate'].describe(percentiles=[0.25, 0.5, 0.75, 0.90])
+        
+        table_data = [
+            ["Budget Strategy (P25)", f"${stats['25%']:.0f}"],
+            ["Market Median",      f"${stats['50%']:.0f}"],
+            ["Premium Tier (P75)",  f"${stats['75%']:.0f}"],
+            ["Luxury Tier (P90)",   f"${stats['90%']:.0f}"]
+        ]
+        
+        fig, ax = plt.subplots(figsize=(8, 3)) # Wider
+        ax.axis('tight')
+        ax.axis('off')
+        
+        the_table = ax.table(
+            cellText=table_data, 
+            colLabels=["Pricing Tier", "Target Price"], 
+            loc='center', 
+            cellLoc='left' # Align text left
+        )
+        
+        # Polish Table Styling
+        the_table.auto_set_font_size(False)
+        the_table.set_fontsize(13)
+        the_table.scale(1, 2)
+        
+        # Remove cell borders
+        for key, cell in the_table.get_celld().items():
+            cell.set_linewidth(0) # No border
+            if key[0] == 0: # Header
+                cell.set_text_props(weight='bold')
+                cell.set_linewidth(0)
+                cell.set_facecolor('#ecf0f1') # Light gray header
+            else:
+                 cell.set_facecolor('white')
+                 # Add thin bottom border
+                 if key[1] == 0 or key[1] == 1:
+                     cell.set_edgecolor('#bdc3c7')
+                     cell.set_linewidth(0.5)
+                     cell.set_linestyle('-')
+                     cell.set_height(0.15)
+        
+        # Numbers right aligned
+        for row in range(1, 5):
+            the_table[(row, 1)].set_text_props(ha='right')
+        
+        plt.title("6. Pricing Strategy Guide", y=1.1, fontweight='bold')
+        
+        plt.savefig("assets/6_pricing_table.png", bbox_inches='tight', dpi=300)
         plt.close()
         print("   Chart 6 OK.")
     except Exception:
         print("   Chart 6 Failed.")
         traceback.print_exc()
 
-    # 7. Rating Traffic Light
-    try:
-        plt.figure(figsize=(10, 6))
-        sns.histplot(data=df[df['rating'] > 0], x='rating', bins=20, kde=True, palette="husl")
-        plt.title("7. Quality Control: Guest Rating Distribution")
-        plt.xlabel("Rating (0-5)")
-        plt.savefig("assets/7_rating_dist.png")
-        plt.close()
-        print("   Chart 7 OK.")
-    except Exception:
-        print("   Chart 7 Failed.")
-        traceback.print_exc()
-
-    # 8. Accommodation Capacity
-    try:
-        plt.figure(figsize=(10, 6))
-        sns.boxplot(data=df[df['accommodates'] <= 10], y='accommodates', palette="Set2")
-        plt.title("8. Group Size Capacity: Person Count per Listing")
-        plt.savefig("assets/8_accommodates.png")
-        plt.close()
-        print("   Chart 8 OK.")
-    except Exception:
-        print("   Chart 8 Failed.")
-        traceback.print_exc()
-
-    # 9. Revenue Share by Property Type
-    try:
-        plt.figure(figsize=(10, 8))
-        rev_share = df.groupby('property_type')['annual_revenue'].sum().sort_values(ascending=False).head(10)
-        sns.barplot(y=rev_share.index, x=rev_share.values, palette="Blues_d")
-        plt.title("9. Market Drivers: Total Revenue by Property Type (Top 10)")
-        plt.xlabel("Total Market Revenue ($)")
-        plt.savefig("assets/9_revenue_share.png")
-        plt.close()
-        print("   Chart 9 OK.")
-    except Exception:
-        print("   Chart 9 Failed.")
-        traceback.print_exc()
-
-    # 10. Top 10 Most Reviewed Neighbourhoods
-    try:
-        plt.figure(figsize=(12, 6))
-        pop_hoods = df.groupby('neighbourhood')['reviews'].sum().sort_values(ascending=False).head(10)
-        sns.barplot(x=pop_hoods.index, y=pop_hoods.values, palette="summer")
-        plt.xticks(rotation=45)
-        plt.title("10. Tourist Hotspots: Neighborhoods with Most Reviews")
-        plt.ylabel("Total Reviews")
-        plt.savefig("assets/10_popular_neighbourhoods.png")
-        plt.close()
-        print("   Chart 10 OK.")
-    except Exception:
-        print("   Chart 10 Failed.")
-        traceback.print_exc()
-
-    # 12. Correlation Heatmap (New)
-    try:
-        plt.figure(figsize=(10, 8))
-        corr_cols = ['nightly_rate', 'reviews', 'rating', 'accommodates', 'annual_revenue']
-        # Filter for numeric columns just in case
-        valid_cols = [c for c in corr_cols if c in df.columns]
-        corr = df[valid_cols].corr()
-        
-        sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
-        plt.title("12. Market Dynamics: Correlation Matrix (Price vs Performance)")
-        plt.tight_layout()
-        plt.savefig("assets/12_correlation_matrix.png")
-        plt.close()
-        print("   Chart 12 OK.")
-    except Exception:
-        print("   Chart 12 Failed.")
-        traceback.print_exc()
-
-
-    # 13. RevPAR Analysis (High Yield Scatter)
-    try:
-        plt.figure(figsize=(10, 6))
-        # Filter noise: RevPAR < 300 to show the dense cluster
-        sns.scatterplot(data=df[df['revpar'] < 300], x='nightly_rate', y='revpar', hue='room_type', alpha=0.6, palette="deep")
-        plt.title("13. Cash Cows: Price vs RevPAR (Revenue Per Available Night)")
-        plt.xlabel("Nightly Price ($)")
-        plt.ylabel("RevPAR ($)")
-        plt.plot([0, 300], [0, 300], ls="--", c=".3") # Diagonal line
-        plt.savefig("assets/13_revpar_scatter.png")
-        plt.close()
-        print("   Chart 13 OK.")
-    except Exception:
-        print("   Chart 13 Failed.")
-        traceback.print_exc()
-
-    # 15. Seasonality Analysis
-    try:
-        season_df = pd.read_csv("seasonal_trends.csv")
-        plt.figure(figsize=(12, 6))
-        sns.lineplot(data=season_df, x='month_year', y='avg_price', marker="o", color="crimson")
-        plt.xticks(rotation=45)
-        plt.title("15. Seasonality: 12-Month Price Forecast")
-        plt.ylabel("Avg Listing Price ($)")
-        plt.grid(True)
-        plt.savefig("assets/15_seasonality_trend.png")
-        plt.close()
-        print("   Chart 15 OK.")
-    except Exception:
-        print("   Chart 15 Failed.")
-        traceback.print_exc()
-
-    # 16. Geospatial Map (Static Scatter)
-    try:
-        plt.figure(figsize=(10, 10))
-        # Scatterplot of Lat/Lon, colored by Price (log scale for visibility)
-        # Filter extremely expensive ones for better color contrast
-        map_df = df[df['nightly_rate'] < 500] 
-        sns.scatterplot(data=map_df, x='longitude', y='latitude', hue='nightly_rate', palette="viridis", size='revpar', sizes=(10, 200), alpha=0.6)
-        plt.title("16. Investment Map: High RevPAR Zones")
-        plt.axis('equal') # Keep map aspect ratio
-        plt.savefig("assets/16_geospatial_map.png")
-        plt.close()
-        print("   Chart 16 OK.")
-    except Exception:
-        print("   Chart 16 Failed.")
-        traceback.print_exc()
-        
 if __name__ == "__main__":
     generate_visuals()

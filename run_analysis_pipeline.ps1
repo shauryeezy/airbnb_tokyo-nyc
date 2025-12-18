@@ -33,7 +33,7 @@ if (-not $env:DB_PASSWORD) {
 Write-Host "`n[1/5] Checking Dependencies..."
 try {
     # Using the specific python executable to install libs
-    & $CondaPython -m pip install scikit-learn pandas numpy sqlalchemy psycopg2-binary matplotlib seaborn | Out-Null
+    & $CondaPython -m pip install scikit-learn pandas numpy sqlalchemy psycopg2-binary matplotlib seaborn folium textblob | Out-Null
     Write-Host "   Dependencies verified." -ForegroundColor Green
 }
 catch {

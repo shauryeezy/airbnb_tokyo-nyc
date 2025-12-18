@@ -62,6 +62,17 @@ def analyze():
         'Impact ($)': model.coef_
     }).sort_values(by='Impact ($)', ascending=False)
     
+    # Feature Name Cleaning
+    name_map = {
+        'room_type_Private room': 'Private Room',
+        'room_type_Shared room': 'Shared Room',
+        'room_type_Hotel room': 'Hotel Status',
+        'accommodates': 'Capacity (Guests)',
+        'reviews': 'Review Volume',
+        'rating': 'Guest Rating'
+    }
+    coefs['Feature'] = coefs['Feature'].map(name_map).fillna(coefs['Feature'])
+    
     print("\n   [Feature Impact Analysis]")
     print(coefs)
     
@@ -75,14 +86,14 @@ def analyze():
     
     plot = sns.barplot(data=coefs, x='Impact ($)', y='Feature', palette=colors)
     
-    # Add labels to bars
-    for i, v in enumerate(coefs['Impact ($)']):
-        plot.text(v + (3 if v > 0 else -3), i, f"${v:+.2f}", 
-                  va='center', ha='left' if v > 0 else 'right', color='black', fontweight='bold')
-
-    plt.title(f"11. Price Driver Analysis (Linear Regression, R²={r_squared:.2f})", fontsize=16, fontweight='bold')
-    plt.xlabel("Impact on Nightly Price ($)", fontsize=12)
-    plt.ylabel("Listing Features", fontsize=12)
+    plt.title(f"11. Directional Price Signals (Linear Model, R²={r_squared:.2f})", fontsize=16, fontweight='bold')
+    plt.xlabel("Est. Price Impact ($)", fontsize=12)
+    plt.ylabel("Listing Benefit ($)", fontsize=12)
+    
+    # Add subtitle regarding model limitations
+    plt.figtext(0.5, 0.01, "Note: Explanatory model only. Coefficients represent average marginal effect, not predictive guarantee.", 
+                ha="center", fontsize=10, style='italic', color='gray')
+    
     plt.axvline(x=0, color='black', linestyle='-', linewidth=0.8)
     
     # Save
