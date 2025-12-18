@@ -8,14 +8,6 @@ def generate_visuals():
     df = pd.read_csv("comprehensive_data.csv")
     print("   Data Loaded. Shape:", df.shape)
 
-    print("🎨 Step 2: Converting Currency...")
-    tky_mask = df['city'] == 'Tokyo'
-    conversion_rate = 0.0067
-    for col in ['nightly_rate', 'annual_revenue']:
-        if col in df.columns:
-            df.loc[tky_mask, col] = df.loc[tky_mask, col] * conversion_rate
-    print("   Currency Converted.")
-
     print("🎨 Step 3: Setting Theme...")
     sns.set_theme(style="whitegrid")
     
@@ -39,17 +31,17 @@ def generate_visuals():
         print("   Chart 1 Failed.")
         traceback.print_exc()
 
-    # 2. Top 5 Neighbourhoods (Split City)
+    # 2. Top 10 Neighbourhoods (NYC)
     try:
         plt.figure(figsize=(12, 8))
-        nbhd_stats = df.groupby(['city', 'neighbourhood'])['annual_revenue'].mean().reset_index()
-        nyc_top = nbhd_stats[nbhd_stats['city'] == 'NYC'].sort_values('annual_revenue', ascending=False).head(5)
-        tokyo_top = nbhd_stats[nbhd_stats['city'] == 'Tokyo'].sort_values('annual_revenue', ascending=False).head(5)
-        top_neighborhoods = pd.concat([nyc_top, tokyo_top]).sort_values('annual_revenue', ascending=False)
-        sns.barplot(data=top_neighborhoods, x='annual_revenue', y='neighbourhood', hue='city', dodge=False, palette="magma")
-        plt.title("2. Top 5 Most Profitable Neighbourhoods: NYC vs Tokyo")
+        nbhd_stats = df.groupby('neighbourhood')['annual_revenue'].mean().reset_index()
+        top_neighborhoods = nbhd_stats.sort_values('annual_revenue', ascending=False).head(10)
+        sns.barplot(data=top_neighborhoods, x='annual_revenue', y='neighbourhood', palette="magma")
+        plt.title("2. Top 10 Most Profitable NYC Neighbourhoods")
+        plt.xlabel("Avg Annual Revenue ($)")
         plt.savefig("assets/2_top_neighbourhoods.png")
         plt.close()
+        print("   Chart 2 OK.")
         print("   Chart 2 OK.")
     except Exception:
         print("   Chart 2 Failed.")
@@ -58,8 +50,9 @@ def generate_visuals():
     # 3. Price Distribution
     try:
         plt.figure(figsize=(10, 6))
-        sns.violinplot(data=df[df['nightly_rate'] < 1000], x="city", y="nightly_rate", palette="muted")
-        plt.title("3. Nightly Rate Distribution (<$1000)")
+        # Data is already statistically filtered via IQR in transformation layer
+        sns.violinplot(data=df, y="nightly_rate", palette="muted")
+        plt.title("3. Nightly Rate Distribution (Statistically Cleaned)")
         plt.ylabel("Nightly Rate ($)")
         plt.savefig("assets/3_price_distribution.png")
         plt.close()
@@ -73,7 +66,7 @@ def generate_visuals():
     # 5. Avg Price by Room Type
     try:
         plt.figure(figsize=(10, 6))
-        sns.barplot(data=df, x='room_type', y='nightly_rate', hue='city', palette="coolwarm")
+        sns.barplot(data=df, x='room_type', y='nightly_rate', palette="coolwarm")
         plt.title("5. Cost of Living: Avg Nightly Rate by Room Type")
         plt.ylabel("Avg Price ($)")
         plt.savefig("assets/5_price_by_room.png")
@@ -86,8 +79,8 @@ def generate_visuals():
     # 6. Review Volume vs Price
     try:
         plt.figure(figsize=(10, 6))
-        sample = df[(df['nightly_rate'] < 1000) & (df['reviews'] < 500)].sample(min(5000, len(df)))
-        sns.scatterplot(data=sample, x='nightly_rate', y='reviews', hue='city', alpha=0.5, size='rating')
+        sample = df[df['reviews'] < 500].sample(min(5000, len(df)))
+        sns.scatterplot(data=sample, x='nightly_rate', y='reviews', alpha=0.5, size='rating')
         plt.title("6. Value Seeking: Do Cheaper Listings Get More Reviews?")
         plt.savefig("assets/6_price_vs_reviews.png")
         plt.close()
@@ -99,7 +92,7 @@ def generate_visuals():
     # 7. Rating Traffic Light
     try:
         plt.figure(figsize=(10, 6))
-        sns.histplot(data=df[df['rating'] > 0], x='rating', bins=20, hue='city', kde=True, palette="husl")
+        sns.histplot(data=df[df['rating'] > 0], x='rating', bins=20, kde=True, palette="husl")
         plt.title("7. Quality Control: Guest Rating Distribution")
         plt.xlabel("Rating (0-5)")
         plt.savefig("assets/7_rating_dist.png")
@@ -112,7 +105,7 @@ def generate_visuals():
     # 8. Accommodation Capacity
     try:
         plt.figure(figsize=(10, 6))
-        sns.boxplot(data=df[df['accommodates'] <= 10], x='city', y='accommodates', palette="Set2")
+        sns.boxplot(data=df[df['accommodates'] <= 10], y='accommodates', palette="Set2")
         plt.title("8. Group Size Capacity: Person Count per Listing")
         plt.savefig("assets/8_accommodates.png")
         plt.close()
@@ -148,6 +141,24 @@ def generate_visuals():
         print("   Chart 10 OK.")
     except Exception:
         print("   Chart 10 Failed.")
+        traceback.print_exc()
+
+    # 12. Correlation Heatmap (New)
+    try:
+        plt.figure(figsize=(10, 8))
+        corr_cols = ['nightly_rate', 'reviews', 'rating', 'accommodates', 'annual_revenue']
+        # Filter for numeric columns just in case
+        valid_cols = [c for c in corr_cols if c in df.columns]
+        corr = df[valid_cols].corr()
+        
+        sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+        plt.title("12. Market Dynamics: Correlation Matrix (Price vs Performance)")
+        plt.tight_layout()
+        plt.savefig("assets/12_correlation_matrix.png")
+        plt.close()
+        print("   Chart 12 OK.")
+    except Exception:
+        print("   Chart 12 Failed.")
         traceback.print_exc()
 
 

@@ -29,7 +29,9 @@ def export_comprehensive_data():
         cl.rating,
         cl.reviews,
         ya.price_clean as nightly_rate,
-        ya.revenue_base as annual_revenue
+        ya.revenue_bear as annual_revenue_conservative,
+        ya.revenue_base as annual_revenue,
+        ya.revenue_bull as annual_revenue_optimistic
     FROM clean_listings cl
     JOIN yield_analysis ya ON cl.id = ya.id
     """

@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "C:\Users\Shaur\Downloads\AirBnB\visualize_results.py", line 137, in <module>
-    generate_visuals()
-    ~~~~~~~~~~~~~~~~^^
-  File "C:\Users\Shaur\Downloads\AirBnB\visualize_results.py", line 6, in generate_visuals
-    df = pd.read_csv("comprehensive_data.csv")
-         ^^
-NameError: name 'pd' is not defined. Did you mean: 'id'?

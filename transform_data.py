@@ -20,28 +20,11 @@ def transform():
         return
 
     # 1. Cleaner: Create a unified 'clean_listings' table
-    # Standardizing currency, missing values, and unifying schemas
+    # Standardizing for NYC Market
     clean_sql = """
     DROP TABLE IF EXISTS clean_listings;
     
     CREATE TABLE clean_listings AS
-    SELECT 
-        'Tokyo' as city,
-        id,
-        name,
-        neighbourhood_cleansed as neighbourhood,
-        property_type,
-        room_type,
-        accommodates,
-        -- Remove $ and , and cast to float. Handle nulls.
-        -- Price is TEXT, needs regex cleaning
-        CAST(NULLIF(regexp_replace(price, '[^0-9.]', '', 'g'), '') AS FLOAT) as price_clean,
-        -- These columns are already Numeric/BigInt in Postgres (from Pandas), so just Handle Nulls
-        COALESCE(number_of_reviews, 0) as reviews,
-        COALESCE(review_scores_rating, 0) as rating,
-        COALESCE(reviews_per_month, 0) as reviews_per_month
-    FROM raw_listings_tokyo
-    UNION ALL
     SELECT 
         'NYC' as city,
         id,
@@ -95,9 +78,51 @@ def transform():
 
     print("Step 1: Cleaning & Unifying Schemas...")
     run_query(clean_sql, engine)
+
+    # 1.1 Outlier Detection (Statistical IQR Method)
+    # Why? To ensure analysis is based on valid data distributions, not skewed by extremes
+    print("Step 1.1: Detecting Statistical Outliers (IQR Method)...")
+    outlier_sql = """
+    ALTER TABLE clean_listings ADD COLUMN is_outlier BOOLEAN DEFAULT FALSE;
+
+    WITH city_stats AS (
+        SELECT 
+            city,
+            percentile_cont(0.25) WITHIN GROUP (ORDER BY price_clean) as p25,
+            percentile_cont(0.75) WITHIN GROUP (ORDER BY price_clean) as p75
+        FROM clean_listings
+        WHERE price_clean > 0
+        GROUP BY city
+    )
+    UPDATE clean_listings cl
+    SET is_outlier = TRUE
+    FROM city_stats cs
+    WHERE cl.city = cs.city
+    AND (
+        cl.price_clean < (cs.p25 - 1.5 * (cs.p75 - cs.p25)) OR 
+        cl.price_clean > (cs.p75 + 1.5 * (cs.p75 - cs.p25))
+    );
+    """
+    run_query(outlier_sql, engine)
     
     print("Step 2: Conducting Yield Analysis (Sensitivity Modeling)...")
-    run_query(yield_sql, engine)
+    # Updated to exclude outliers from financial projections
+    yield_sql_updated = """
+    DROP TABLE IF EXISTS yield_analysis;
+    
+    CREATE TABLE yield_analysis AS
+    SELECT 
+        city,
+        neighbourhood,
+        id,
+        price_clean,
+        (price_clean * 365 * 0.40) as revenue_bear,
+        (price_clean * 365 * 0.60) as revenue_base,
+        (price_clean * 365 * 0.80) as revenue_bull
+    FROM clean_listings
+    WHERE price_clean > 0 AND is_outlier = FALSE;
+    """
+    run_query(yield_sql_updated, engine)
     
     print("Step 3: Aggregating Neighborhood Statistics...")
     run_query(stats_sql, engine)
